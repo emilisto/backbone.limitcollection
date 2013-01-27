@@ -1,0 +1,17 @@
+{
+    "name": "async-testing-tutorial",
+    "version": "0.0.1",
+    "author": "Emil Stenqvist <emsten@gmail.com>",
+    "main": "index",
+    "engines": { "node": ">= 0.4.x < 0.7.0" },
+    "scripts": {
+        "test": "make test"
+    },
+    "dependencies": {
+        "backbone": "latest"
+    },
+    "devDependencies": {
+        "mocha": "0.3.x",
+        "chai": "latest"
+    }
+}
