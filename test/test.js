@@ -1,12 +1,12 @@
 var assert = require('chai').assert,
     Backbone = require('backbone'),
     _ = require('underscore'),
-    LimitCollection = require('../index.js');
+    LimitCollection = require('../backbone.limitcollection');
 
 suite('Backbone.LimitCollection', function() {
 
-    var LIMIT = 1000,
-        TOTAL = 2000;
+    var LIMIT = 200,
+        TOTAL = 400;
 
     var models = _.map(_.range(1, TOTAL), function(i) {
         return new Backbone.Model({
@@ -35,68 +35,84 @@ suite('Backbone.LimitCollection', function() {
             coll = new LimitCollection([], {
                 collection: baseColl,
                 limit: LIMIT,
-                debounce: false
+                debounce: true
             });
         });
 
         test('should limit no. of models', function() {
             assert.equal(coll.length, coll.limit);
-
         });
-        test('should contian the first `limit` models', function() {
+        test('should contian the first `limit` models', function(done) {
             var union = _.union(baseColl.models.slice(0, coll.limit), coll.models);
-            assert.equal(union.length, coll.length);
+
+            setTimeout(function() {
+                assert.equal(union.length, coll.length);
+                done();
+            });
         });
 
-        test('should limit', function() {
+        test('should limit', function(done) {
             var removeModel = models[0];
             baseColl.remove(removeModel);
-            assert.isUndefined(coll.get(removeModel));
-            assert.equal(coll.length, LIMIT);
+
+            setTimeout(function() {
+                assert.isUndefined(coll.get(removeModel));
+                assert.equal(coll.length, LIMIT);
+                done();
+            });
         });
 
-        test('should contain all models if base collection has N < limit no. of models', function() {
+        test('should contain all models if base collection has N < limit no. of models', function(done) {
             baseColl.remove(models.slice(0, LIMIT));
-            assert.equal(coll.length, baseColl.length);
+
+            setTimeout(function() {
+                assert.equal(coll.length, baseColl.length);
+                done();
+            });
         });
 
-        test('should react to a changed limit', function() {
+        test('should react to a changed limit', function(done) {
             coll.setLimit(3);
-            assert.equal(coll.length, 3);
+
+            setTimeout(function() {
+                assert.equal(coll.length, 3);
+                done();
+            });
         });
 
-        test('should work with a reset collection', function() {
+        test('should work with an empty collection', function(done) {
             baseColl.reset();
-            assert.equal(coll.length, 0);
 
-            baseColl.reset(models);
-            assert.equal(coll.limit, coll.length);
-
+            setTimeout(function() {
+                assert.equal(coll.length, 0);
+                done();
+            });
         });
 
-        test('should respond to sort changes', function() {
+        test('should work with an empty collection', function(done) {
+            baseColl.reset(models);
+
+            setTimeout(function() {
+                assert.equal(coll.limit, coll.length);
+                done();
+            });
+        });
+
+        test('should respond to sort changes', function(done) {
 
             var originalModels = coll.models.slice();
 
             baseColl.comparator = function(model) { return -model.get('num'); };
             baseColl.sort();
 
-            // NOTE: this is so we can do the _.union() test
-            assert.ok(coll.limit >= baseColl.length / 2);
+            setTimeout(function() {
+                // NOTE: this is so we can do the _.union() test
+                assert.ok(coll.limit >= baseColl.length / 2);
 
-            var totalSet = _.union(originalModels, coll.models);
-            assert.equal(totalSet.length, baseColl.length);
-
-        });
-
-    });
-
-    suite("Involved behavior", function() {
-
-        var SortedCollection = Backbone.Collection.extend({
-            //comparator: function(model) {
-                //return model.get('num');
-            //}
+                var totalSet = _.union(originalModels, coll.models);
+                assert.equal(totalSet.length, baseColl.length);
+                done();
+            });
         });
 
     });
