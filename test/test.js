@@ -5,8 +5,8 @@ var assert = require('chai').assert,
 
 suite('Backbone.LimitCollection', function() {
 
-    var LIMIT = 200,
-        TOTAL = 400;
+    var LIMIT = 500,
+        TOTAL = 1000;
 
     var models = _.map(_.range(1, TOTAL), function(i) {
         return new Backbone.Model({
@@ -19,102 +19,99 @@ suite('Backbone.LimitCollection', function() {
         return coll.pluck('id').join(', ');
     }
 
-    suite("Basics", function() {
 
-        test('should require a base collection', function() {
+    var baseColl, coll;
+
+    setup(function() {
+        baseColl = new Backbone.Collection(models),
+        coll = new LimitCollection({
+            collection: baseColl,
+            limit: LIMIT,
+            debounce: true
         });
-
     });
 
-    suite("Limiting behavior", function() {
+    test('should limit no. of models', function() {
+        assert.equal(coll.length, coll.limit);
+    });
+    test('should contian the first `limit` models', function(done) {
+        var union = _.union(baseColl.models.slice(0, coll.limit), coll.models);
 
-        var baseColl, coll;
-
-        setup(function() {
-            baseColl = new Backbone.Collection(models),
-            coll = new LimitCollection([], {
-                collection: baseColl,
-                limit: LIMIT,
-                debounce: true
-            });
+        setTimeout(function() {
+            assert.equal(union.length, coll.length);
+            done();
         });
+    });
 
-        test('should limit no. of models', function() {
-            assert.equal(coll.length, coll.limit);
+    test('should limit', function(done) {
+        var removeModel = models[0];
+        baseColl.remove(removeModel);
+
+        setTimeout(function() {
+            assert.isUndefined(coll.get(removeModel));
+            assert.equal(coll.length, LIMIT);
+            done();
         });
-        test('should contian the first `limit` models', function(done) {
-            var union = _.union(baseColl.models.slice(0, coll.limit), coll.models);
+    });
 
-            setTimeout(function() {
-                assert.equal(union.length, coll.length);
-                done();
-            });
+    test('should contain all models if base collection has N < limit no. of models', function(done) {
+        baseColl.remove(models.slice(0, LIMIT));
+
+        setTimeout(function() {
+            assert.equal(coll.length, baseColl.length);
+            done();
         });
+    });
 
-        test('should limit', function(done) {
-            var removeModel = models[0];
-            baseColl.remove(removeModel);
+    test('should react to a changed limit', function(done) {
+        coll.setLimit(3);
 
-            setTimeout(function() {
-                assert.isUndefined(coll.get(removeModel));
-                assert.equal(coll.length, LIMIT);
-                done();
-            });
+        setTimeout(function() {
+            assert.equal(coll.length, 3);
+            done();
         });
+    });
 
-        test('should contain all models if base collection has N < limit no. of models', function(done) {
-            baseColl.remove(models.slice(0, LIMIT));
+    test('should work with an empty collection', function(done) {
+        baseColl.reset();
 
-            setTimeout(function() {
-                assert.equal(coll.length, baseColl.length);
-                done();
-            });
+        setTimeout(function() {
+            assert.equal(coll.length, 0);
+            done();
         });
+    });
 
-        test('should react to a changed limit', function(done) {
-            coll.setLimit(3);
+    test('should work with an empty collection', function(done) {
+        baseColl.reset(models);
 
-            setTimeout(function() {
-                assert.equal(coll.length, 3);
-                done();
-            });
+        setTimeout(function() {
+            assert.equal(coll.limit, coll.length);
+            done();
         });
+    });
 
-        test('should work with an empty collection', function(done) {
-            baseColl.reset();
+    test('should respond to sort changes', function(done) {
 
-            setTimeout(function() {
-                assert.equal(coll.length, 0);
-                done();
-            });
+        var originalModels = coll.models.slice();
+
+        baseColl.comparator = function(model) { return -model.get('num'); };
+        baseColl.sort();
+
+        setTimeout(function() {
+            // NOTE: this is so we can do the _.union() test
+            assert.ok(coll.limit >= baseColl.length / 2);
+
+            var totalSet = _.union(originalModels, coll.models);
+            assert.equal(totalSet.length, baseColl.length);
+            done();
         });
+    });
 
-        test('should work with an empty collection', function(done) {
-            baseColl.reset(models);
-
-            setTimeout(function() {
-                assert.equal(coll.limit, coll.length);
-                done();
-            });
-        });
-
-        test('should respond to sort changes', function(done) {
-
-            var originalModels = coll.models.slice();
-
-            baseColl.comparator = function(model) { return -model.get('num'); };
-            baseColl.sort();
-
-            setTimeout(function() {
-                // NOTE: this is so we can do the _.union() test
-                assert.ok(coll.limit >= baseColl.length / 2);
-
-                var totalSet = _.union(originalModels, coll.models);
-                assert.equal(totalSet.length, baseColl.length);
-                done();
-            });
-        });
-
+    test('should be read only', function() {
+        assert.throws(function() { coll.reset(); }, Error);
+        assert.throws(function() { coll.add(); }, Error);
+        assert.throws(function() { coll.remove(); }, Error);
+        assert.throws(function() { coll.sync(); }, Error);
     });
 
 });

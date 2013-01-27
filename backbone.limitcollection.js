@@ -16,12 +16,28 @@
     if(!Backbone) throw TypeError("Backbone is required");
 
 
+    var collProto = Backbone.Collection.prototype,
+        add = collProto.add,
+        remove = collProto.remove,
+        sort = collProto.sort,
+        reset = collProto.reset;
+
+    // Raise an Error if one tries to modify the collection directly
+    var modificationError = function() {
+        throw Error("you can't modify this collection directly, it's just a proxy for the base collection");
+    };
+
     var LimitCollection = Backbone.Collection.extend({
 
-        constructor: function(models, options) {
-            var args = Array.prototype.slice.call(this, arguments);
-            Backbone.Collection.prototype.constructor.apply(this, args);
+        constructor: function(options) {
 
+            // Temporarily re-instate the #reset() method since the
+            // Backbone.Collection constructor will call them.
+            this.reset = function() {};
+            collProto.constructor.call(this, [], options);
+            delete this.reset;
+
+            if(!_.isObject(options)) throw TypeError("options required");
             options = _.defaults(options, {
                 // Debounces reaction to events - i.e. improves performance
                 // since many consecutive events within a short timeframe, will
@@ -64,12 +80,12 @@
                 toAdd = _.difference(belonging, existing),
                 toRemove = _.difference(existing, belonging);
 
-            this.add(toAdd);
-            this.remove(toRemove);
+            add.call(this, toAdd);
+            remove.call(this, toRemove);
 
             if(this.comparator !== this.collection.comparator) {
                 this.comparator = this.collection.comparator;
-                this.sort();
+                sort.call(this);
             }
 
         },
@@ -80,6 +96,16 @@
         }
     });
 
+    // Make sure all methods that modify the colleciton generate errors when
+    // called, since the LimitCollection should only be a read-only proxy to
+    // the base collection.
+    var lockedMethods = [
+        'sync', 'add', 'remove', 'reset', 'update', 'push', 'pop', 'shift',
+        'unshift', 'sort', 'fetch', 'create'
+    ];
+    _.extend(LimitCollection.prototype, _.object(_.map(lockedMethods, function(method) {
+        return [ method, modificationError ];
+    })));
 
     Backbone.LimitCollection = LimitCollection;
     if(typeof module !== 'undefined') {
